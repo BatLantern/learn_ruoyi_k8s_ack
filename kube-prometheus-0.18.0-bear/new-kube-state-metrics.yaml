@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics-2
+  namespace: monitoring
+spec:
+  type: NodePort
+  externalTrafficPolicy: Cluster
+  selector:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: kube-state-metrics
+    app.kubernetes.io/part-of: kube-prometheus
+  ports:
+  - name: http-main
+    port: 8081
+    targetPort: 8081
+    protocol: TCP
+    nodePort: 31682
+  - name: http-self
+    port: 8082
+    targetPort: 8082
+    protocol: TCP
+    nodePort: 32062

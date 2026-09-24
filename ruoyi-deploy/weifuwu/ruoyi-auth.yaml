@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ruoyi-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ruoyi-auth
+  template:
+    metadata:
+      labels:
+        app: ruoyi-auth
+    spec:
+      containers:
+        - name: ruoyi-auth
+          image: crpi-wi9tjhesle0kd7vo-vpc.cn-hangzhou.personal.cr.aliyuncs.com/yanwu/ruoyi-auth:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9200
+            - containerPort: 9404
+              name: jmx-metrics
+          env:
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR
+              value: "172.26.41.3:8848"
+            - name: SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR
+              value: "172.26.41.3:8848"
+            # 加载 javaagent
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/jmx/jmx_prometheus_javaagent.jar=9404:/jmx/config.yaml"
+          volumeMounts:
+            # 把宿主机的 /opt/jmx-exporter 挂到容器的 /jmx
+            - name: jmx-exporter
+              mountPath: /jmx
+
+      volumes:
+        - name: jmx-exporter
+          hostPath:
+            path: /opt/jmx-exporter
+            type: Directory
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ruoyi-auth
+  namespace: default
+  labels:                        # 新增：Service 自身的标签
+    app: ruoyi-auth
+spec:
+  selector:
+    app: ruoyi-auth
+  ports:
+    - name: http                  # 新增：给端口命名
+      port: 9200
+      targetPort: 9200
+    - name: jmx-metrics           # 新增：暴露 JMX Exporter 端口
+      port: 9404
+      targetPort: 9404
+  type: ClusterIP

@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ruoyi-alert-test
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ruoyi-alert-test
+  template:
+    metadata:
+      labels:
+        app: ruoyi-alert-test
+    spec:
+      containers:
+        - name: test
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "故意退出，用于测试告警"
+              sleep 5
+              exit 1

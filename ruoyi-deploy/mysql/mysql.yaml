@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      # 允许 Pod 调度到带 network-unavailable 污点的节点
+      tolerations:
+        - key: "node.kubernetes.io/network-unavailable"
+          operator: "Exists"
+          effect: "NoSchedule"
+
+      containers:
+        - name: mysql
+          image: crpi-h7lmcexlqrc19bl1.cn-hangzhou.personal.cr.aliyuncs.com/batt_class_object/project_ruoyi_nacos:v2.2.0
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+
+      volumes:
+        - name: mysql-data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+      name: mysql

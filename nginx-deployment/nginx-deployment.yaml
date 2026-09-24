@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: project-nginx-deploy
+  labels:
+    app: project-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: project-nginx
+  template:
+    metadata:
+      labels:
+        app: project-nginx
+    spec:
+      tolerations:
+        - key: "node.kubernetes.io/network-unavailable"
+          operator: "Exists"
+          effect: "NoSchedule"
+      imagePullSecrets:
+        - name: aliyun-acr-secret
+      containers:
+        - name: project-nginx
+          image: crpi-h7lmcexlqrc19bl1.cn-hangzhou.personal.cr.aliyuncs.com/batt_class_object/project_nginx:1.29.1 
+          imagePullPolicy: IfNotPresent
+          # 临时覆盖启动命令，让容器保持运行，方便进入排查
+          command: ["/bin/sh", "-c", "sleep 3600"]
+          ports:
+            - containerPort: 80
+          env:
+            - name: GATEWAY_HOST
+              value: "192.168.7.128:8080"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+---
+# 新增：LoadBalancer类型Service，自动分配公网IP实现外网访问
+apiVersion: v1
+kind: Service
+metadata:
+  name: project-nginx-svc
+  labels:
+    app: project-nginx
+spec:
+  type: LoadBalancer   # 负载均衡类型，阿里云ACK自动分配公网SLB IP
+  selector:
+    app: project-nginx
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+

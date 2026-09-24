@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nacos-standalone
+  labels:
+    app: nacos
+
+spec:
+  # ==============================
+  # 容忍节点污点
+  # ==============================
+  tolerations:
+  - operator: "Exists"
+    effect: "NoSchedule"
+
+  containers:
+  - name: nacos
+    # 阿里云 Nacos 镜像
+    image: crpi-h7lmcexlqrc19bl1.cn-hangzhou.personal.cr.aliyuncs.com/batt_class_object/project_ruoyi_nacos:v3
+
+    ports:
+    - containerPort: 8848
+      name: client
+
+    - containerPort: 9848
+      name: client-grpc
+
+    - containerPort: 9849
+      name: raft-grpc
+
+    env:
+    # MySQL Service 名称
+    - name: DB_HOST
+      value: "192.168.140.29"
+
+    - name: TZ
+      value: Asia/Shanghai
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  restartPolicy: Always

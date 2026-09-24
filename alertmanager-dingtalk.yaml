@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: dingtalk-config
+  namespace: monitoring
+spec:
+  route:
+    receiver: dingtalk-webhook
+    groupBy:
+      - alertname
+      - namespace
+    groupWait: 0s
+    groupInterval: 30s
+    repeatInterval: 4h
+
+  receivers:
+    - name: dingtalk-webhook
+      webhookConfigs:
+        - url: http://172.26.41.3:8060/dingtalk/dingtalk/send
+          sendResolved: true

@@ -1,0 +1,19 @@
+# ruoyi-auth-monitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ruoyi-auth-monitor
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: ruoyi-auth
+  namespaceSelector:
+    matchNames:
+      - default
+  endpoints:
+    - port: jmx-metrics
+      path: /metrics
+      interval: 15s

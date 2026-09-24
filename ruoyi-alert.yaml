@@ -1,0 +1,206 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ruoyi-alert
+  namespace: monitoring
+  labels:
+    prometheus: k8s
+    role: alert-rules
+
+spec:
+  groups:
+
+    # =========================
+    # 一、若依微服务
+    # =========================
+    - name: ruoyi-service
+      rules:
+
+        # 微服务不可达
+        - alert: RuoyiServiceDown
+          expr: |
+            up{
+              job=~"ruoyi-(gateway|auth|system|gen|job|file)"
+            } == 0
+          for: 0m
+          labels:
+            severity: critical
+            namespace: monitoring
+          annotations:
+            summary: "若依微服务不可达"
+            description: "若依微服务 {{ $labels.job }} 无法被 Prometheus 正常采集，已经持续超过1分钟，请检查 Pod 和服务状态。"
+
+        # Pod 进入 CrashLoopBackOff
+        - alert: RuoyiPodCrashLoop
+          expr: |
+            max by (namespace, pod, container) (
+              kube_pod_container_status_waiting_reason{
+                namespace="default",
+                pod=~"ruoyi-.*",
+                reason="CrashLoopBackOff"
+              }
+            ) == 1
+          for: 0m
+          labels:
+            severity: critical
+            namespace: monitoring
+          annotations:
+            summary: "若依 Pod 反复启动失败"
+            description: "若依 Pod {{ $labels.pod }} 中的容器 {{ $labels.container }} 已进入 CrashLoopBackOff 状态，请立即检查容器日志。"
+
+        # Pod 频繁重启
+        - alert: RuoyiPodRestartHigh
+          expr: |
+            increase(
+              kube_pod_container_status_restarts_total{
+                namespace="default",
+                pod=~"ruoyi-.*"
+              }[10m]
+            ) >= 3
+          for: 0m
+          labels:
+            severity: warning
+            namespace: monitoring
+          annotations:
+            summary: "若依 Pod 重启次数过高"
+            description: "若依 Pod {{ $labels.pod }} 最近10分钟内重启次数达到3次或以上，请检查服务日志。"
+
+
+    # =========================
+    # 二、若依 JVM
+    # =========================
+    - name: ruoyi-jvm
+      rules:
+
+        # JVM 堆内存 > 80%
+        - alert: RuoyiJvmHeapHigh
+          expr: |
+            (
+              sum by (job) (
+                jvm_memory_bytes_used{
+                  area="heap",
+                  job=~"ruoyi-(gateway|auth|system|gen|job|file)"
+                }
+              )
+              /
+              sum by (job) (
+                jvm_memory_bytes_max{
+                  area="heap",
+                  job=~"ruoyi-(gateway|auth|system|gen|job|file)"
+                }
+              )
+            ) > 0.80
+          for: 0m
+          labels:
+            severity: warning
+            namespace: monitoring
+          annotations:
+            summary: "若依 JVM 堆内存使用率过高"
+            description: "{{ $labels.job }} JVM 堆内存使用率已经超过80%，请检查服务内存使用情况。"
+
+        # JVM 堆内存 > 90%
+        - alert: RuoyiJvmHeapCritical
+          expr: |
+            (
+              sum by (job) (
+                jvm_memory_bytes_used{
+                  area="heap",
+                  job=~"ruoyi-(gateway|auth|system|gen|job|file)"
+                }
+              )
+              /
+              sum by (job) (
+                jvm_memory_bytes_max{
+                  area="heap",
+                  job=~"ruoyi-(gateway|auth|system|gen|job|file)"
+                }
+              )
+            ) > 0.90
+          for: 0m
+          labels:
+            severity: critical
+            namespace: monitoring
+          annotations:
+            summary: "若依 JVM 堆内存严重不足"
+            description: "{{ $labels.job }} JVM 堆内存使用率已经超过90%，存在内存溢出风险，请立即处理。"
+
+        # JVM GC 时间过长
+        - alert: RuoyiJvmGcHigh
+          expr: |
+            sum by (job) (
+              rate(
+                jvm_gc_collection_seconds_sum{
+                  job=~"ruoyi-(gateway|auth|system|gen|job|file)"
+                }[5m]
+              )
+            ) > 0.50
+          for: 0m
+          labels:
+            severity: warning
+            namespace: monitoring
+          annotations:
+            summary: "若依 JVM 垃圾回收时间过长"
+            description: "{{ $labels.job }} 最近5分钟 JVM 垃圾回收时间占比超过50%，请检查是否存在内存压力。"
+
+
+    # =========================
+    # 三、Kubernetes 节点
+    # =========================
+    - name: kubernetes-node
+      rules:
+
+        # CPU > 80%
+        - alert: KubernetesNodeCpuHigh
+          expr: |
+            (
+              1 -
+              avg by (instance) (
+                rate(node_cpu_seconds_total{mode="idle"}[5m])
+              )
+            ) > 0.80
+          for: 0m
+          labels:
+            severity: warning
+            namespace: monitoring
+          annotations:
+            summary: "Kubernetes 节点 CPU 使用率过高"
+            description: "节点 {{ $labels.instance }} CPU 使用率已经超过80%，请检查节点负载。"
+
+        # 内存 > 85%
+        - alert: KubernetesNodeMemoryHigh
+          expr: |
+            (
+              1 -
+              node_memory_MemAvailable_bytes
+              /
+              node_memory_MemTotal_bytes
+            ) > 0.85
+          for: 0m
+          labels:
+            severity: warning
+            namespace: monitoring
+          annotations:
+            summary: "Kubernetes 节点内存使用率过高"
+            description: "节点 {{ $labels.instance }} 内存使用率已经超过85%，请检查节点内存。"
+
+        # 磁盘剩余 < 15%
+        - alert: KubernetesNodeDiskLow
+          expr: |
+            (
+              node_filesystem_avail_bytes{
+                mountpoint="/",
+                fstype!=""
+              }
+              /
+              node_filesystem_size_bytes{
+                mountpoint="/",
+                fstype!=""
+              }
+            ) < 0.15
+          for: 0m
+          labels:
+            severity: warning
+            namespace: monitoring
+          annotations:
+            summary: "Kubernetes 节点磁盘空间不足"
+            description: "节点 {{ $labels.instance }} 根分区剩余空间已经低于15%，请及时清理磁盘。"

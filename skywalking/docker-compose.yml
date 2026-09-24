@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  elasticsearch:
+    image: crpi-h7lmcexlqrc19bl1-vpc.cn-hangzhou.personal.cr.aliyuncs.com/batt_class_object/project_elasticsearch:8.14.3
+    container_name: elasticsearch
+    restart: always
+    networks:
+      - skywalking-net
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # 限制 ES 内存
+    volumes:
+      - ./es-data:/usr/share/elasticsearch/data
+
+  oap:
+    image: crpi-h7lmcexlqrc19bl1-vpc.cn-hangzhou.personal.cr.aliyuncs.com/batt_class_object/project_skywalking-oap:10.4.0 # 请使用最新稳定版
+    container_name: skywalking-oap
+    restart: always
+    networks:
+      - skywalking-net
+    depends_on:
+      - elasticsearch
+    ports:
+      - "11800:11800" # gRPC 端口，供 Agent 上报数据
+      - "12800:12800" # HTTP 端口，供 UI 查询
+    environment:
+      - SW_STORAGE=elasticsearch
+      - SW_STORAGE_ES_CLUSTER_NODES=elasticsearch:9200
+      - SW_JAVA_OPTS=-Xms512m -Xmx512m # 限制 OAP 内存
+
+  ui:
+    image: crpi-h7lmcexlqrc19bl1-vpc.cn-hangzhou.personal.cr.aliyuncs.com/batt_class_object/project_skywalking-ui:10.4.0 # 请使用最新稳定版
+    container_name: skywalking-ui
+    restart: always
+    networks:
+      - skywalking-net
+    depends_on:
+      - oap
+    ports:
+      - "8080:8080"
+    environment:
+      - SW_OAP_ADDRESS=http://oap:12800
+
+networks:
+  skywalking-net:
+    driver: bridge

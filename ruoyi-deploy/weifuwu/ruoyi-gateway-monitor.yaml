@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ruoyi-gateway-monitor
+  namespace: monitoring
+  labels:
+    release: prometheus
+    prometheus: k8s
+spec:
+  selector:
+    matchLabels:
+      app: ruoyi-gateway
+  namespaceSelector:
+    matchNames:
+      - default
+  endpoints:     
+    - port: jmx-metrics
+      path: /metrics
+      interval: 15s

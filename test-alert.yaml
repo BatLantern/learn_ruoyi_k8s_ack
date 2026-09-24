@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dingtalk-test-critical
+  namespace: monitoring
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: dingtalk-test
+      rules:
+        - alert: DingTalkCriticalTest
+          expr: vector(1)
+          for: 0m
+          labels:
+            severity: critical
+            namespace: monitoring
+          annotations:
+            summary: "钉钉严重告警测试"
+            description: "这是一条人为触发的严重告警，用于测试 Prometheus、Alertmanager 和钉钉通知是否正常。"

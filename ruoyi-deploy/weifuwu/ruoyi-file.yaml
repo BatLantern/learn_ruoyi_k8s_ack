@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ruoyi-file
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ruoyi-file
+  template:
+    metadata:
+      labels:
+        app: ruoyi-file
+    spec:
+      tolerations:
+        - key: "node.kubernetes.io/network-unavailable"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: ruoyi-file
+          image: crpi-wi9tjhesle0kd7vo-vpc.cn-hangzhou.personal.cr.aliyuncs.com/yanwu/ruoyi-file:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9300
+            - containerPort: 9404
+              name: jmx-metrics
+          env:
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR
+              value: "172.26.41.3:8848"
+            - name: SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR
+              value: "172.26.41.3:8848"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/jmx/jmx_prometheus_javaagent.jar=9404:/jmx/config.yaml"
+          volumeMounts:
+            - name: jmx-exporter
+              mountPath: /jmx
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: jmx-exporter
+          hostPath:
+            path: /opt/jmx-exporter
+            type: Directory
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ruoyi-file
+  namespace: default
+  labels:
+    app: ruoyi-file
+spec:
+  selector:
+    app: ruoyi-file
+  ports:
+    - name: http
+      port: 9300
+      targetPort: 9300
+    - name: jmx-metrics
+      port: 9404
+      targetPort: 9404
+  type: ClusterIP
